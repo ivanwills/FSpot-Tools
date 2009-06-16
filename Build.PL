@@ -8,7 +8,9 @@ my $builder = Module::Build->new(
 	dist_author         => 'Ivan Wills <ivan.wills@gmail.com>',
 	dist_version_from   => 'lib/FSpot.pm',
 	reqires             => {
+		'Image::ExifTool'                       => 0,
 		'Catalyst::Helper::Model::DBIC::Schema' => 0,
+		'DBIx::Class::Schema::Loader'           => 0,
 	},
 	build_requires => {
 		'Test::More' => 0,
