@@ -14,7 +14,9 @@ use Pod::Usage;
 use Data::Dumper qw/Dumper/;
 use English qw/ -no_match_vars /;
 use FindBin qw/$Bin/;
+use FSpot;
 use Image::ExifTool;
+use Path::Class;
 
 our $VERSION = version->new('0.0.1');
 my ($name)   = $PROGRAM_NAME =~ m{^.*/(.*?)$}mxs;
@@ -59,7 +61,28 @@ sub main {
 	}
 
 	# do stuff here
+	my $fspot = FSpot->new;
 
+	my $photos = $fspot->schema->resultset('Photos')->search;
+
+	PHOTO:
+	while ( my $photo = $photos->next ) {
+		my $file = $photo->uri;
+		$file =~ s{^file://}{}xms;
+		$file =~ s{%(\d\d)}{chr hex $1}gexms;
+		$file = file($file);
+
+		next PHOTO if -f $file;
+
+		my $name     = $file->basename;
+		my $quoted   = $file =~ s/"/\\"/gxms;
+		my @versions = grep {$_ =~ /$name$/} `locate "$quoted"`;
+
+		print
+			!@versions       ? "completely missing\t$file\n"
+			: @versions == 1 ? "moved to $versions[1]\t$file\n"
+			:                  "Several options found for\t$file\n";
+	}
 
 	return;
 }
