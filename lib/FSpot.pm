@@ -16,6 +16,8 @@ use Config::General;
 use FSpot::Schema;
 use FindBin qw/$Bin/;
 use Path::Class;
+use DateTime;
+use File::Copy qw/copy/;
 
 our $VERSION     = version->new('0.0.1');
 our @EXPORT_OK   = qw//;
@@ -36,6 +38,11 @@ has config_file => (
 has _schema => (
 	is  => 'rw',
 	isa => 'FSpot::Schema',
+);
+
+has backed_up => (
+	is  => 'rw',
+	isa => 'Bool',
 );
 
 sub _build_config {
@@ -81,6 +88,27 @@ sub schema {
 	my $schema   = FSpot::Schema->connect( $self->config->{connect_info} );
 
 	return $self->_schema($schema);
+}
+
+sub backup_db {
+	my ($self) = @_;
+
+	return if $self->backed_up;
+
+	my $db = $self->config->{connect_info};
+	$db =~ s{^dbi:SQLite:}{}xms;
+
+	die "Could not find the database to backup!\n" if !-f $db;
+
+	my $date = DateTime->now( time_zone => "Australia/Sydney" );
+
+	copy $db, "$db.$date";
+
+	die "Could not create the backup!\n" if !-f "$db.$date";
+
+	$self->backed_up(1);
+
+	return;
 }
 
 1;
