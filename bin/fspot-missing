@@ -17,21 +17,17 @@ use FindBin qw/$Bin/;
 use FSpot;
 use Image::ExifTool;
 use Path::Class;
+use DateTime;
 
 our $VERSION = version->new('0.0.1');
 my ($name)   = $PROGRAM_NAME =~ m{^.*/(.*?)$}mxs;
 
 my %option = (
-	out     => undef,
 	verbose => 0,
 	man     => 0,
 	help    => 0,
 	VERSION => 0,
 );
-
-if ( !@ARGV ) {
-	pod2usage( -verbose => 1 );
-}
 
 main();
 exit 0;
@@ -41,13 +37,13 @@ sub main {
 	Getopt::Long::Configure('bundling');
 	GetOptions(
 		\%option,
-		'out|o=s',
+		'fix|f',
+		'test|t',
 		'verbose|v+',
 		'man',
 		'help',
 		'VERSION!',
 	) or pod2usage(2);
-	#my $file = join ' ', @ARGV;
 
 	if ( $option{'VERSION'} ) {
 		print "$name Version = $VERSION\n";
@@ -77,11 +73,41 @@ sub main {
 		my $name     = $file->basename;
 		my $quoted   = $file =~ s/"/\\"/gxms;
 		my @versions = grep {$_ =~ /$name$/} `locate "$quoted"`;
+		chomp $versions[0];
 
 		print
 			!@versions       ? "completely missing\t$file\n"
-			: @versions == 1 ? "moved to $versions[1]\t$file\n"
+			: @versions == 1 ? "moved $file\t=> $versions[0]\n"
 			:                  "Several options found for\t$file\n";
+
+		if ( @versions == 1 && $option{fix} ) {
+
+			my $old = $photo->uri =~ /^file:/ ? $photo->uri : 'file://' . $photo->uri;
+			my $new = 'file://' . $versions[0];
+			$new =~ s{ ( [^-\w\s/:\()] ) }{sprintf "%x", ord $1}gexms;
+
+			my $version = $fspot->schema->resultset('PhotoVersions')->search({
+				photo_id => $photo->id,
+				uri      => $old,
+			});
+
+			if ( $version->count != 1 ) {
+				warn "Wont fix $file can't find appropriate version!\n";
+				next PHOTO;
+			}
+
+			print "$old\t => $new\n" if $option{verbose} || $option{test};
+			if ( !$option{test} ) {
+				$fspot->backup_db;
+
+				$fspot->schema->resultset('Photos')->search({
+					id  => $photo->id,
+					uri => $old,
+				})->update({ uri => 'file://' . $new });
+
+				$version->update({ uri => $new});
+			}
+		}
 	}
 
 	return;
