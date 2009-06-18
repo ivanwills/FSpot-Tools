@@ -68,7 +68,7 @@ sub main {
 		$file = file($file);
 
 		my $name = $file->basename;
-		my ($base, $edit, $suffix) = $name =~ /^ (.*?) ( \s [(] [^)]+ [)] ) [.] (.+) $/;
+		my ($base, $edit, $suffix) = $name =~ /^ (.*?) ( \s [(] .+ [)] ) [.] (.+) $/;
 
 		next PHOTO if !$edit;
 
@@ -77,6 +77,10 @@ sub main {
 				uri => { 'LIKE' => "%$base.%" },
 			},
 		);
+
+		if ( $matches->count ) {
+			print "$file\t looks like it is a modified version\n";
+		}
 	}
 
 	return;
