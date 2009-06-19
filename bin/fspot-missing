@@ -38,6 +38,7 @@ sub main {
 	GetOptions(
 		\%option,
 		'fix|f',
+		'files|F',
 		'test|t',
 		'verbose|v+',
 		'man',
@@ -132,7 +133,12 @@ This documentation refers to fspot-missing version 0.1.
   -d --dir=directory
                 Check if the missing files have been moved to this directory
                 and update the database if they have.
-  -
+  -f --fix      Fix the f-spot db's file locations (if only one file match)
+  -F --file     Move the file to match f-spot's location (if only one match)
+  -i --ignore=regex
+                Ignore matching files found in directories that match this
+                regex. (eg ignore back/copy directories so fix options can
+                work more of the time)
 
   -v --verbose  Show more detailed option
      --version  Prints the version information
