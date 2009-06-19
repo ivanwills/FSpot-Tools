@@ -11,6 +11,7 @@ use warnings;
 use version;
 use Getopt::Long;
 use Pod::Usage;
+use List::MoreUtils qw/any/;
 use Data::Dumper qw/Dumper/;
 use English qw/ -no_match_vars /;
 use FindBin qw/$Bin/;
@@ -37,8 +38,10 @@ sub main {
 	Getopt::Long::Configure('bundling');
 	GetOptions(
 		\%option,
-		'fix|f',
-		'files|F',
+		'db|d',
+		'files|f',
+		'ignore|i=s',
+		'limit|l=i',
 		'test|t',
 		'verbose|v+',
 		'man',
@@ -58,9 +61,14 @@ sub main {
 	}
 
 	# do stuff here
+	if ( $option{ignore} ) {
+		$option{ignore} = [ split /[:;]/, $option{ignore} ];
+	}
+
 	my $fspot = FSpot->new;
 
 	my $photos = $fspot->schema->resultset('Photos')->search;
+	my $count  = 0;
 
 	PHOTO:
 	while ( my $photo = $photos->next ) {
@@ -73,15 +81,25 @@ sub main {
 
 		my $name     = $file->basename;
 		my $quoted   = $file =~ s/"/\\"/gxms;
-		my @versions = grep {$_ =~ /$name$/} `locate "$quoted"`;
-		chomp $versions[0];
+		my @versions = map {chomp $_; $_} grep {$_ =~ /$name$/} `locate "$quoted"`;
 
+		# check if any found image version should be ignored
+		if ( $option{ignore} && @versions ) {
+			my @new_versions;
+			for my $version ( @versions ) {
+				push @new_versions, $version if !any { $version =~ /^$_/ } @{ $option{ignore} };
+			}
+			@versions = @new_versions;
+		}
+
+		if ( !@versions || @versions > 1 ) {
 		print
 			!@versions       ? "completely missing\t$file\n"
-			: @versions == 1 ? "moved $file\t=> $versions[0]\n"
 			:                  "Several options found for\t$file\n";
-
-		if ( @versions == 1 && $option{fix} ) {
+		print "Versions:\n" . (join "\n", @versions) . "\n" if $option{verbose} > 1 && @versions && @versions > 1;
+		}
+		elsif ( $option{db} ) {
+			print "updating $file\tto point to $versions[0]\n";
 
 			my $old = $photo->uri =~ /^file:/ ? $photo->uri : 'file://' . $photo->uri;
 			my $new = 'file://' . $versions[0];
@@ -97,7 +115,7 @@ sub main {
 				next PHOTO;
 			}
 
-			print "$old\t => $new\n" if $option{verbose} || $option{test};
+			#print "$old\t => $new\n" if $option{verbose} || $option{test};
 			if ( !$option{test} ) {
 				$fspot->backup_db;
 
@@ -109,6 +127,14 @@ sub main {
 				$version->update({ uri => $new});
 			}
 		}
+		elsif ( $option{file} ) {
+			print "moveing $file\tto $versions[0]\n";
+		}
+		else {
+			print "Could attempt to fix $file\twith $versions[0] (using --db or --file)\n";
+		}
+
+		last PHOTO if $option{limit} && @versions && @versions == 1 && $count++ >= $option{limit};
 	}
 
 	return;
@@ -130,20 +156,17 @@ This documentation refers to fspot-missing version 0.1.
    fspot-missing [option]
 
  OPTIONS:
-  -d --dir=directory
-                Check if the missing files have been moved to this directory
-                and update the database if they have.
-  -f --fix      Fix the f-spot db's file locations (if only one file match)
-  -F --file     Move the file to match f-spot's location (if only one match)
+  -d --db      Fix the f-spot db's file locations (if only one matches)
+  -f --files   Move files to match f-spot's location (if only one matches)
   -i --ignore=regex
-                Ignore matching files found in directories that match this
-                regex. (eg ignore back/copy directories so fix options can
-                work more of the time)
+               Ignore matching files found in directories that match this
+               regex. (eg ignore back/copy directories so fix options can
+               work more of the time)
 
-  -v --verbose  Show more detailed option
-     --version  Prints the version information
-     --help     Prints this help information
-     --man      Prints the full documentation for fspot-missing
+  -v --verbose Show more detailed option
+     --version Prints the version information
+     --help    Prints this help information
+     --man     Prints the full documentation for fspot-missing
 
 =head1 DESCRIPTION
 
