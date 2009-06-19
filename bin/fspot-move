@@ -15,8 +15,9 @@ use Data::Dumper qw/Dumper/;
 use English qw/ -no_match_vars /;
 use FindBin qw/$Bin/;
 use FSpot;
-use Image::ExifTool;
+use Image::ExifTool qw/ImageInfo/;
 use Path::Class;
+use File::Copy qw/move/;
 
 our $VERSION = version->new('0.0.1');
 my ($name)   = $PROGRAM_NAME =~ m{^.*/(.*?)$}mxs;
@@ -74,6 +75,34 @@ sub main {
 
 		next PHOTO if -f $file;
 
+		if ( $option{bydate} ) {
+
+			# check that the file is not already in a date dir
+			next PHOTO if $file =~ m{ \d\d\d\d / \d\d / \d\d / [^/]+$}xms;
+
+			my $create_date = ImageInfo($file)->{CreateDate};
+			my ( $y, $m, $d, $H, $M, $S ) = split /[\s:]/, $create_date;
+
+			mkdir "$ENV{HOME}/Photos/$y"       if !-d "$ENV{HOME}/Photos/$y";
+			mkdir "$ENV{HOME}/Photos/$y/$m"    if !-d "$ENV{HOME}/Photos/$y/$m";
+			mkdir "$ENV{HOME}/Photos/$y/$m/$d" if !-d "$ENV{HOME}/Photos/$y/$m/$d";
+
+			if ( !$option{test} ) {
+				$fspot->backup_db;
+
+				# move the file to it's final location
+				move $file, "$ENV{HOME}/Photos/$y/$m/$d/" . $file->basename;
+
+				# update the record in the photo table
+				$fspot->schema->resultset('Photos')->search({
+					id  => $photo->id,
+					uri => $old,
+				})->update({ uri => 'file://' . $new });
+
+				# update the version table
+				$version->update({ uri => $new});
+			}
+		}
 	}
 
 	return;
