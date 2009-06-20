@@ -5,7 +5,7 @@ use warnings;
 use Test::More tests => 1;
 
 BEGIN {
-	use_ok( 'module' );
+	use_ok( 'FSpot' );
 }
 
 diag( "Testing module $module::VERSION, Perl $], $^X" );
