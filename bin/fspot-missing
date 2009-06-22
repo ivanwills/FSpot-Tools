@@ -19,6 +19,7 @@ use FSpot;
 use Image::ExifTool;
 use Path::Class;
 use DateTime;
+use File::stat;
 
 our $VERSION = version->new('0.0.1');
 my ($name)   = $PROGRAM_NAME =~ m{^.*/(.*?)$}mxs;
@@ -60,19 +61,19 @@ sub main {
 		pod2usage( -verbose => 1 );
 	}
 
-	# do stuff here
+	# check if there are any directories to ignore and convert to array ref
 	if ( $option{ignore} ) {
 		$option{ignore} = [ split /[:;]/, $option{ignore} ];
 	}
 
-	my $fspot = FSpot->new;
-
-	my $photos = $fspot->schema->resultset('Photos')->search;
+	my $fspot  = FSpot->new;
+	my $photos = $fspot->schema->resultset('PhotoVersions')->search;
 	my $count  = 0;
 
 	PHOTO:
-	while ( my $photo = $photos->next ) {
-		my $file = $photo->uri;
+	while ( my $photov = $photos->next ) {
+
+		my $file = $photov->uri;
 		$file =~ s{^file://}{}xms;
 		$file =~ s{%(\d\d)}{chr hex $1}gexms;
 		$file = file($file);
@@ -80,8 +81,10 @@ sub main {
 		next PHOTO if -f $file;
 
 		my $name     = $file->basename;
-		my $quoted   = $file =~ s/"/\\"/gxms;
-		my @versions = map {chomp $_; $_} grep {$_ =~ /$name$/} `locate "$quoted"`;
+		my $quoted   = $name;
+		$name   =~ s{ ( [[(*+)\]] ) }{\\$1}gxms;
+		$quoted =~ s/"/\\"/gxms;
+		my @versions = grep {/$name$/} map {chomp $_; $_} `locate "$quoted"`;
 
 		# check if any found image version should be ignored
 		if ( $option{ignore} && @versions ) {
@@ -89,52 +92,59 @@ sub main {
 			for my $version ( @versions ) {
 				push @new_versions, $version if !any { $version =~ /^$_/ } @{ $option{ignore} };
 			}
+
+			# remove ignored file versions
 			@versions = @new_versions;
 		}
 
 		if ( !@versions || @versions > 1 ) {
-		print
-			!@versions       ? "completely missing\t$file\n"
-			:                  "Several options found for\t$file\n";
-		print "Versions:\n" . (join "\n", @versions) . "\n" if $option{verbose} > 1 && @versions && @versions > 1;
+			# There is nothing that we can do/safly do to fix this photo
+			print
+				!@versions       ? "completely missing\t$file `locate \"$quoted\"`\n"
+				:                  "Several options found for\t$file (".$photov->id.")\n";
+			print "Versions:\n" . (join "\n", @versions) . "\n" if $option{verbose} > 1 && @versions && @versions > 1;
 		}
 		elsif ( $option{db} ) {
-			print "updating $file\tto point to $versions[0]\n";
-
-			my $old = $photo->uri =~ /^file:/ ? $photo->uri : 'file://' . $photo->uri;
-			my $new = 'file://' . $versions[0];
-			$new =~ s{ ( [^-\w\s/:\()] ) }{sprintf "%x", ord $1}gexms;
-
-			my $version = $fspot->schema->resultset('PhotoVersions')->search({
-				photo_id => $photo->id,
-				uri      => $old,
-			});
-
-			if ( $version->count != 1 ) {
-				warn "Wont fix $file can't find appropriate version!\n";
-				next PHOTO;
-			}
-
-			#print "$old\t => $new\n" if $option{verbose} || $option{test};
-			if ( !$option{test} ) {
-				$fspot->backup_db;
-
-				$fspot->schema->resultset('Photos')->search({
-					id  => $photo->id,
-					uri => $old,
-				})->update({ uri => 'file://' . $new });
-
-				$version->update({ uri => $new});
-			}
+			# Fix the database to point to the correct file
+			fix_db( $fspot, $photov, $file, \@versions,  );
 		}
 		elsif ( $option{file} ) {
+			# move the file to the location (not yet implemented)
 			print "moveing $file\tto $versions[0]\n";
 		}
 		else {
+			# tell the user what could be done to fix the issue
 			print "Could attempt to fix $file\twith $versions[0] (using --db or --file)\n";
 		}
 
+		# check if we should stop before we have finished checking all files
 		last PHOTO if $option{limit} && @versions && @versions == 1 && $count++ >= $option{limit};
+	}
+
+	return;
+}
+
+sub fix_db {
+	my ($fspot, $photov, $file, $versions, ) = @_;
+
+	print "updating $file\tto point to $versions->[0]\n";
+
+	my $old = $photov->uri =~ /^file:/ ? $photov->uri : 'file://' . $photov->uri;
+	my $new = 'file://' . $versions->[0];
+	$new =~ s{ ( [^-\w\s/:\().] ) }{sprintf "%%%x", ord $1}gexms;
+	die $new if $new =~ /\w2e(?:jpg|nef|tif)$/ixms;
+
+	if ( !$option{test} ) {
+		$fspot->backup_db;
+
+		$new = 'file://' . $new if $new !~ /^file:/;
+		$photov->uri( $new );
+		$photov->update;
+
+		if ( $photov->version_id == 1 ) {
+			$photov->photo_id->uri($new);
+			$photov->photo_id->update;
+		}
 	}
 
 	return;
