@@ -36,7 +36,7 @@ sub main {
 	Getopt::Long::Configure('bundling');
 	GetOptions(
 		\%option,
-		'out|o=s',
+		'test|t',
 		'verbose|v+',
 		'man',
 		'help',
@@ -58,28 +58,47 @@ sub main {
 	# do stuff here
 	my $fspot = FSpot->new;
 
-	my $photos = $fspot->schema->resultset('Photos')->search;
+	my $photos = $fspot->schema->resultset('PhotoVersions')->search({ version_id => 1 });
 
 	PHOTO:
-	while ( my $photo = $photos->next ) {
-		my $file = $photo->uri;
+	while ( my $photov = $photos->next ) {
+		my $file = $photov->uri;
 		$file =~ s{^file://}{}xms;
 		$file =~ s{%(\d\d)}{chr hex $1}gexms;
 		$file = file($file);
 
+		my $dir  = $file->parent;
 		my $name = $file->basename;
-		my ($base, $edit, $suffix) = $name =~ /^ (.*?) ( \s [(] .+ [)] ) [.] (.+) $/;
+		my ($base, $edit, $suffix) = $name =~ /^ (.*?) \s+ [(] ( .+ ) [)] [.] (.+) $/xms;
 
+		warn $name if !$edit && $file =~ /[()]/;
 		next PHOTO if !$edit;
 
 		my $matches = $fspot->schema->resultset('Photos')->search(
 			{
-				uri => { 'LIKE' => "%$base.%" },
+				uri => "file://$dir/$base.$suffix",
 			},
 		);
 
-		if ( $matches->count ) {
-			print "$file\t looks like it is a modified version\n";
+		if ( $matches->count == 1 ) {
+			$matches = $matches->first;
+
+			print "$file\t looks like it is a modified version\n" if $option{verbose} || $option{test};
+
+			my $old_photo_id = $photov->photo_id->id;
+			my $version_id   = $fspot->schema->resultset('PhotoVersions')->search({
+				photo_id => $matches->id,
+			})->get_column('version_id')->max + 1;
+
+			print "Updating $file be a version of " . $matches->uri . " version $version_id\n" if $option{verbose} || $option{test};
+			if ( !$option{test} ) {
+				$fspot->backup_db;
+				$photov->photo_id->delete;
+				$photov->photo_id($matches->id);
+				$photov->version_id($version_id);
+				$photov->name($edit);
+				$photov->update;
+			}
 		}
 	}
 
