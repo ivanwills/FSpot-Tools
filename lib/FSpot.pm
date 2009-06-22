@@ -123,7 +123,6 @@ FSpot - <One-line description of module's purpose>
 
 This documentation refers to FSpot version 0.1.
 
-
 =head1 SYNOPSIS
 
    use FSpot;
@@ -132,38 +131,31 @@ This documentation refers to FSpot version 0.1.
    # This section will be as far as many users bother reading, so make it as
    # educational and exemplary as possible.
 
-
 =head1 DESCRIPTION
-
-A full description of the module and its features.
-
-May include numerous subsections (i.e., =head2, =head3, etc.).
-
 
 =head1 SUBROUTINES/METHODS
 
-A separate section listing the public components of the module's interface.
+=head3 C<schema ()>
 
-These normally consist of either subroutines that may be exported, or methods
-that may be called on objects belonging to the classes that the module
-provides.
+Return: FSpot::Schema - DBIx::Class schema object
 
-Name the section accordingly.
+Description: Connects to the F-Spot database and returns the schema object
 
-In an object-oriented module, this section should begin with a sentence (of the
-form "An object of this class represents ...") to give the reader a high-level
-context to help them understand the methods that are subsequently described.
+=head3 C<backup_db ()>
 
+Description: Backs up the F-Spot database file to a new name with the date
+and time appended. It will only do this one per session so it can be safely
+called many times.
 
-=head3 C<new ( $search, )>
+=head3 C<_build_config ( $file )>
 
-Param: C<$search> - type (detail) - description
+Param: C<$file> - string - File name of config
 
-Return: FSpot -
+Description: Reads the configuration file for settings
 
-Description:
+=head3 C<_build_config_file ()>
 
-=cut
+Description: Determines the most appropriate config file
 
 =head1 DIAGNOSTICS
 

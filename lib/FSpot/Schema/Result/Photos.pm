@@ -74,3 +74,24 @@ __PACKAGE__->set_primary_key("id");
 __PACKAGE__->set_primary_key('id');
 
 1;
+
+__END__
+
+=head1 NAME
+
+FSpot::Schema::Result::Photos - <One-line description of module's purpose>
+
+=head1 VERSION
+
+This documentation refers to FSpot::Schema::Result::Photos version 0.1.
+
+=head1 SYNOPSIS
+
+   use FSpot::Schema::Result::Photos;
+
+   # Brief but working code example(s) here showing the most common usage(s)
+   # This section will be as far as many users bother reading, so make it as
+   # educational and exemplary as possible.
+
+=cut
+

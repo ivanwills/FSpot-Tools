@@ -59,4 +59,26 @@ __PACKAGE__->add_unique_constraint("photo_id_version_id_unique", ["photo_id", "v
 
 __PACKAGE__->set_primary_key('photo_id', 'version_id');
 
+__PACKAGE__->belongs_to( photo_id => 'FSpot::Schema::Result::Photos' );
 1;
+
+__END__
+
+=head1 NAME
+
+FSpot::Schema::Result::PhotoVersions - <One-line description of module's purpose>
+
+=head1 VERSION
+
+This documentation refers to FSpot::Schema::Result::PhotoVersions version 0.1.
+
+=head1 SYNOPSIS
+
+   use FSpot::Schema::Result::PhotoVersions;
+
+   # Brief but working code example(s) here showing the most common usage(s)
+   # This section will be as far as many users bother reading, so make it as
+   # educational and exemplary as possible.
+
+=cut
+

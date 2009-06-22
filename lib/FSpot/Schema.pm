@@ -14,3 +14,24 @@ __PACKAGE__->load_namespaces;
 
 # You can replace this text with custom content, and it will be preserved on regeneration
 1;
+
+__END__
+
+=head1 NAME
+
+FSpot::Schema - <One-line description of module's purpose>
+
+=head1 VERSION
+
+This documentation refers to FSpot::Schema version 0.1.
+
+=head1 SYNOPSIS
+
+   use FSpot::Schema;
+
+   # Brief but working code example(s) here showing the most common usage(s)
+   # This section will be as far as many users bother reading, so make it as
+   # educational and exemplary as possible.
+
+=cut
+
