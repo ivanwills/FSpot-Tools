@@ -15,5 +15,7 @@ add_stopwords(qw/
 	Param
 	fspot
 	db
+	checkdb
+	roll's
 /);
 all_pod_files_spelling_ok();
