@@ -104,12 +104,31 @@ sub check_file {
 
 	$file = file($file)->absolute if !ref $file;
 
-	my $res = $fspot->schema->resultset('PhotoVersions')->search({
+	my $exact = $fspot->schema->resultset('PhotoVersions')->search({
 		uri => 'file://' . $file,
 	});
 
-	if ( !$res->count ) {
-		print "$file not in F-Spot\n";
+	return if $exact->count == 1;
+
+	if ( !$exact->count ) {
+		my $base = $file->basename;
+		my $approx = $fspot->schema->resultset('PhotoVersions')->search({
+			uri => { LIKE => "%$base" },
+		});
+
+		if ( !$approx->count ) {
+			print "$file is not in F-Spot\n";
+			return;
+		}
+
+		$approx->reset;
+		while ( my $photo = $approx->next ) {
+			my $file = $photov->uri;
+			$file =~ s{^file://}{}xms;
+			$file =~ s{%(\d\d)}{chr hex $1}gexms;
+			$file = file($file);
+
+		}
 	}
 
 	return;
