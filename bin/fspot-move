@@ -41,7 +41,9 @@ sub main {
 	Getopt::Long::Configure('bundling');
 	GetOptions(
 		\%option,
-		'bydate|d',
+		'bydate|b',
+		'destination|d',
+		'recurse|r',
 		'limit|l=i',
 		'test|t',
 		'verbose|v+',
@@ -66,38 +68,42 @@ sub main {
 
 	my $where;
 
-	if ( $option{bydate} && @ARGV ) {
-		$where = {
-			file => [ 'REGEXP', '^(file://)?(' . (join '|', map { file($_)->absolute } @ARGV) . ')$' ],
-		};
+	my @test_re;
+	if ($option{recurse}) {
+		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr/^\Q$_\E/ } map {s{/$}{}} @ARGV;
+	}
+	else {
+		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr{^\Q$_\E/[^/]+$} } map {s{/$}{}; $_} @ARGV;
 	}
 
-	my $photos = $fspot->schema->resultset('Photos')->search( $where );
+#	if ( $option{bydate} && @ARGV ) {
+#		$where = {
+#			file => [ 'REGEXP', '^(file://)?(' . (join '|', map { file($_)->absolute } @ARGV) . ')$' ],
+#		};
+#	}
+
+	my $photos = $fspot->schema->resultset('PhotoVersions')->search( $where );
 	my $good  = 0;
 	my $vgood = 0;
 	my $bad   = 0;
 	my $error = 0;
 
 	PHOTO:
-	while ( my $photo = $photos->next ) {
-		my $file = $photo->uri;
+	while ( my $photov = $photos->next ) {
+		my $file = $photov->uri;
 		$file =~ s{^file://}{}xms;
 		$file =~ s{%(\d\d)}{chr hex $1}gexms;
 		$file = file($file);
 
 		next PHOTO if !-f $file;
 
-		my $old = $photo->uri =~ /^file:/ ? $photo->uri : 'file://' . $photo->uri;
+		next PHOTO if @test_re && !grep {$file =~ /$_/} @test_re;
+
 		#my $new = 'file://' . $versions[0];
 		#$new =~ s{ ( [^-\w\s/:\()] ) }{sprintf "%x", ord $1}gexms;
 
-		my $version = $fspot->schema->resultset('PhotoVersions')->search({
-			photo_id => $photo->id,
-			uri      => $old,
-		});
-
 		if ( $option{bydate} ) {
-			my $count = by_date( $fspot, $file, $old, $photo, $version );
+			my $count = by_date( $fspot, $file, $photov );
 			  $count == 1  ? $good++
 			: $count == 2  ? $vgood++
 			: $count == -1 ? $bad++
@@ -121,7 +127,7 @@ WARN
 
 my $exif;
 sub by_date {
-	my ($fspot, $file, $old, $photo, $version) = @_;
+	my ($fspot, $file, $photov) = @_;
 
 	return -1 if !-f $file;
 
@@ -135,25 +141,28 @@ sub by_date {
 	return 0 if !$create_date;
 
 	my ( $y, $m, $d, $H, $M, $S ) = split /[\s:]/, $create_date;
+	my $dir = dir("$ENV{HOME}/Photos/$y/$m/$d");
+	$dir->mkpath;
 
-	mkdir "$ENV{HOME}/Photos/$y"       if !-d "$ENV{HOME}/Photos/$y";
-	mkdir "$ENV{HOME}/Photos/$y/$m"    if !-d "$ENV{HOME}/Photos/$y/$m";
-	mkdir "$ENV{HOME}/Photos/$y/$m/$d" if !-d "$ENV{HOME}/Photos/$y/$m/$d";
+		my $new = $dir->file($file->basename);
 
-	warn "Moving $file to $ENV{HOME}/Photos/$y/$m/$d/\n" if $option{verbose} || $option{test};
+	warn "Moving $file to $new\n" if $option{verbose} || $option{test};
 
 	if ( !$option{test} ) {
 		$fspot->backup_db;
 
 		# move the file to it's final location
-		move $file, "$ENV{HOME}/Photos/$y/$m/$d/" . $file->basename;
+		move $file, $new or die "Could not move $file to $new: $!\n";
 
-		# update the record in the photo table
-		$photo->uri($file);
-		$photo->update;
+		# update the parent photo table
+		if ( $photov->uri eq $photov->photo_id->uri ) {
+			$photov->photo_id->uri('file://' . $new);
+			$photov->photo_id->update;
+		}
 
-		# update the version table
-		$version->update({ uri => $file});
+		# update the record in version table
+		$photov->uri('file://' . $new);
+		$photov->update;
 	}
 
 	return 1;
@@ -172,10 +181,12 @@ This documentation refers to fspot-move version 0.1.
 =head1 SYNOPSIS
 
    fspot-move --bydate [--limit=NN] [--test] [--verbose] [src]
-   fspot-move [--verbose] [--test] src dest
+   fspot-move [--verbose] [--test] src --destination directory
 
  OPTIONS:
-  -d --bydate  Move the files to the date ordered directories (if they are not already that way)
+  -b --bydate  Move the files to the date ordered directories (if they are not already that way)
+  -d --destination=str
+               Move the photos to this directory
   -l --limit=int
                Limit the number of opperations to int (useful for more througher testing)
   -t --test    Test any move with out actually modifiying any thing
