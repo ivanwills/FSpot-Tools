@@ -1,0 +1,37 @@
+---
+name: FSpot
+version: 0.0.1
+author:
+  - 'Ivan Wills <ivan.wills@gmail.com>'
+abstract: Basic tools for manipulating the F-Spot photo database.
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+build_requires:
+  Test::More: 0
+provides:
+  FSpot:
+    file: lib/FSpot.pm
+    version: 0.0.1
+  FSpot::Schema:
+    file: lib/FSpot/Schema.pm
+  FSpot::Schema::Result::Exports:
+    file: lib/FSpot/Schema/Result/Exports.pm
+  FSpot::Schema::Result::Jobs:
+    file: lib/FSpot/Schema/Result/Jobs.pm
+  FSpot::Schema::Result::Meta:
+    file: lib/FSpot/Schema/Result/Meta.pm
+  FSpot::Schema::Result::PhotoTags:
+    file: lib/FSpot/Schema/Result/PhotoTags.pm
+  FSpot::Schema::Result::PhotoVersions:
+    file: lib/FSpot/Schema/Result/PhotoVersions.pm
+  FSpot::Schema::Result::Photos:
+    file: lib/FSpot/Schema/Result/Photos.pm
+  FSpot::Schema::Result::Rolls:
+    file: lib/FSpot/Schema/Result/Rolls.pm
+  FSpot::Schema::Result::Tags:
+    file: lib/FSpot/Schema/Result/Tags.pm
+generated_by: Module::Build version 0.33
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4

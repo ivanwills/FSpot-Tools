@@ -70,10 +70,10 @@ sub main {
 
 	my @test_re;
 	if ($option{recurse}) {
-		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr/^\Q$_\E/ } map {s{/$}{}} @ARGV;
+		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr/^\Q$_\E/ } map {m{\A(.*)/?\Z}xms; $1} @ARGV;
 	}
 	else {
-		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr{^\Q$_\E/[^/]+$} } map {s{/$}{}; $_} @ARGV;
+		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr{^\Q$_\E/[^/]+$} } map {m{\A(.*)/?\Z}xms; $1} @ARGV;
 	}
 
 #	if ( $option{bydate} && @ARGV ) {

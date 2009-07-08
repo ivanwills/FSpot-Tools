@@ -11,7 +11,6 @@ use version;
 use Carp qw/cluck/;
 use Data::Dumper qw/Dumper/;
 use English qw/ -no_match_vars /;
-use base qw/Exporter/;
 use Config::General;
 use FSpot::Schema;
 use FindBin qw/$Bin/;

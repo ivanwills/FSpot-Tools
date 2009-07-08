@@ -84,7 +84,7 @@ sub main {
 		my $quoted   = $name;
 		$name   =~ s{ ( [[(*+)\]] ) }{\\$1}gxms;
 		$quoted =~ s/"/\\"/gxms;
-		my @versions = grep {/$name$/} map {chomp $_; $_} `locate "$quoted"`;
+		my @versions = grep {/$name$/} split /\n/, `locate "$quoted"`;
 
 		# check if any found image version should be ignored
 		if ( $option{ignore} && @versions ) {

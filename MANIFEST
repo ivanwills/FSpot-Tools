@@ -1,3 +1,4 @@
+bin/fspot-checkdb
 bin/fspot-missing
 bin/fspot-move
 bin/fspot-recombine
@@ -26,3 +27,6 @@ t/kwalitee.t
 t/pod-coverage.t
 t/pod.t
 t/spelling.t
+Makefile.PL
+LICENSE
+META.yml
