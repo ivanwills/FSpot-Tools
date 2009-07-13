@@ -70,10 +70,10 @@ sub main {
 
 	my @test_re;
 	if ($option{recurse}) {
-		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr/^\Q$_\E/ } map {m{\A(.*)/?\Z}xms; $1} @ARGV;
+		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr/^\Q$_\E/ } map {m{\A(.*?)/?\Z}xms; $1} @ARGV;
 	}
 	else {
-		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr{^\Q$_\E/[^/]+$} } map {m{\A(.*)/?\Z}xms; $1} @ARGV;
+		@test_re = map { -f $_ ? qr/^\Q$_\E$/ : qr{^\Q$_\E/[^/]+$} } map {m{\A(.*?)/?\Z}xms; $1} @ARGV;
 	}
 
 #	if ( $option{bydate} && @ARGV ) {
@@ -189,6 +189,7 @@ This documentation refers to fspot-move version 0.1.
                Move the photos to this directory
   -l --limit=int
                Limit the number of opperations to int (useful for more througher testing)
+  -r --recurse Recurse into sub directories and move photos found their
   -t --test    Test any move with out actually modifiying any thing
 
   -v --verbose Show more detailed option
