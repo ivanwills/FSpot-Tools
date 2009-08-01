@@ -17,6 +17,7 @@ use English qw/ -no_match_vars /;
 use FindBin qw/$Bin/;
 use FSpot;
 use Path::Class;
+use IO::Prompt qw/prompt/;
 
 our $VERSION = version->new('0.0.1');
 my ($name)   = $PROGRAM_NAME =~ m{^.*/(.*?)$}mxs;
@@ -59,7 +60,9 @@ sub main {
 	GetOptions(
 		\%option,
 		'fix|f',
+		'recurse|r!',
 		'test|t',
+		'viewer|i=s',
 		'verbose|v+',
 		'man',
 		'help',
@@ -134,7 +137,13 @@ sub check_file {
 
 	return if $exact->count == 1;
 
-	( warn "Several versions of $file found\n" ) && return if $exact->count;
+	if ( $exact->count > 1 ) {
+		warn "$file\: Several versions of found\n";
+		return;
+	}
+
+	# remove empty files that have image suffixes
+	unlink $file if -s $file == 0;
 
 	my $base = $file->basename;
 	my $approx = $fspot->schema->resultset('PhotoVersions')->search({
@@ -142,36 +151,108 @@ sub check_file {
 	});
 
 	if ( !$approx->count ) {
+		warn "completely missing: $file\n";
 		my $old_version;
+		my $name;
 
 		# now check if this is a possible missing version
-		if ( $file =~ m{^ ( .* / ) ( [^/]+ ) \s+ [(] [^/]* [)] [.] \w+ $}xms ) {
+		if ( $file =~ m{^ ( .* / ) ( [^/]+ ) \s+ [(] ( [^/]* ) [)] [.] \w+ $}xms ) {
 			print "$file appears to be a modified file\n";
 			$old_version = "$1$2";
+			$name = $3;
 		}
 
-		print "$file is not in F-Spot\n" if !$option{test} || ( $option{test} && $option{verbose} );
+		print "$file is not in F-Spot\n" if !$option{fix} || ( $option{fix} && $option{verbose} );
 
-		if ( $option{test} ) {
+		if ( $option{fix} ) {
+			$fspot->backup_db;
 
 			if ( $old_version ) {
 				# adding this file as a new version of old photo, need to find old photo
+				warn "Need to add code to check if the old version is actually added ($old_version)\n";
+				my $old = $fspot->schema->resultset('Photos')->search({
+					uri => { LIKE => "%$old_version.%" },
+				});
+
+				if ($old->count == 1) {
+					warn "found parent now need to add version\n";
+					$fspot->add_photo_version( $file, $old->first->id, $name );
+				}
+				elsif ( $old->count == 0 ) {
+					warn "no old image in db\n";
+				}
+				else {
+					warn "several candidates";
+				}
 			}
 			else {
 				# add this image as a new photo
+				$fspot->add_photo($file);
+				print warn "Added $file\n";
 			}
 		}
-
-		return;
 	}
+	else {
+		print "possibly found: $file\n";
+		$approx->reset;
 
-	$approx->reset;
-	while ( my $photo = $approx->next ) {
-		my $file = $photo->uri;
-		$file =~ s{^file://}{}xms;
-		$file =~ s{%(\d\d)}{chr hex $1}gexms;
-		$file = file($file);
+		ALTERNATIVE:
+		while ( my $photo = $approx->next ) {
+			my $file2 = $photo->uri;
+			$file2 =~ s{^file://}{}xms;
+			$file2 =~ s{%(\d\d)}{chr hex $1}gexms;
+			$file2 = file($file2);
+			print "\t\t$file2 ";
 
+			if ( -s $file == -s $file2 ) {
+				# diff the two files to see if there is a difference
+				if ( system 'diff', $file, $file2 ) {
+					# diff returns true value if files differ
+					if ( $option{viewer} ) {
+						system $option{viewer}, $file, $file2;
+						if ( prompt "Were the photos the same? [yN] ", '-y' ) {
+							unlink $file;
+							print "\tDeleted the file\n";
+							last ALTERNATIVE;
+						}
+						else {
+							print "\tdon't know what to do";
+						}
+					}
+					else {
+						print "\tFixes differ, don't know what to do";
+					}
+				}
+				else {
+					# files are the same
+					if ($option{fix}) {
+						unlink $file;
+						print "\tDeleted the file\n";
+						last ALTERNATIVE;
+					}
+					else {
+						print "\tprobably the same file would delete";
+					}
+				}
+			}
+			else {
+				if ( $option{viewer} ) {
+					system $option{viewer}, $file, $file2;
+					if ( prompt "Were the photos the same? [yN] ", '-y' ) {
+						unlink $file;
+						print "\tDeleted the file\n";
+						last ALTERNATIVE;
+					}
+					else {
+						print "\tdon't know what to do";
+					}
+				}
+				else {
+					print "\tDon't know what to do";
+				}
+			}
+			print "\n";
+		}
 	}
 
 	return;
@@ -188,7 +269,7 @@ sub check_dir {
 
 		if ( -d $file && !$seen{$file} ) {
 			$seen{$file} = 1;
-			check_dir( $fspot, $file );
+			check_dir( $fspot, $file ) if $option{recurse};
 		}
 		elsif ( -f $file ) {
 			check_file( $fspot, $file );
