@@ -53,6 +53,10 @@ has roll_id => (
 sub _build_config {
 	my ($self, $file) = @_;
 
+	my $fspot_dir =
+		  -d "$ENV{HOME}/.gnome2/f-spot" ? "$ENV{HOME}/.gnome2/f-spot"
+		: -d "$ENV{HOME}/.config/f-spot" ? "$ENV{HOME}/.config/f-spot"
+		:                                  die "Could not determine the location of the f-spot config directory!\n";
 	if (!defined $file) {
 		cluck "no config file yet\n";
 	}
@@ -60,10 +64,10 @@ sub _build_config {
 		my $cfg    = Config::General->new($file);
 		$self->config({ $cfg->getall });
 
-		$self->config->{connect_info} ||= "dbi:SQLite:$ENV{HOME}/.gnome2/f-spot/photos.db";
+		$self->config->{connect_info} ||= "dbi:SQLite:$fspot_dir/photos.db";
 	}
 	else {
-		$self->config({ connect_info => "dbi:SQLite:$ENV{HOME}/.gnome2/f-spot/photos.db" });
+		$self->config({ connect_info => "dbi:SQLite:$fspot_dir/photos.db" });
 	}
 
 	return;
