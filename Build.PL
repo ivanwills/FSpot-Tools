@@ -20,7 +20,7 @@ my $builder = Module::Build->new(
 	create_license     => 1,
 	meta_merge         => {
 		resources => {
-			repository => 'git://github.com/ivanwills/FSpot.git',
+			repository => 'http://github.com/ivanwills/FSpot',
 			bugtracker => 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=FSpot',
 		},
 	},
