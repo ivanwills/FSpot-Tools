@@ -42,7 +42,7 @@ has _schema => (
 
 has backed_up => (
 	is  => 'rw',
-	isa => 'String',
+	isa => 'Str',
 );
 
 has roll_id => (
@@ -150,7 +150,7 @@ sub add_roll {
 
 	my $schema   = $self->schema;
 	my $rolls    = $schema->resultset('Rolls');
-	my $roll_id  = $rolls->max('id') + 1;
+	my $roll_id  = $rolls->search->get_column('id')->max('id') + 1;
 	$time ||= time;
 
 	$rolls->create({ id => $roll_id, time => $time })->insert();
@@ -165,7 +165,7 @@ sub add_photo {
 
 	my $schema   = $self->schema;
 	my $photos   = $schema->resultset('Photos');
-	my $photo_id = $photos->max('id') + 1;
+	my $photo_id = $photos->search->get_column('id')->max('id') + 1;
 	# need to work out how F-Spot does this
 	#my $md5      = md5_base64($file->slurp);
 
@@ -174,7 +174,7 @@ sub add_photo {
 		time               => $file->stat->mtime,
 		uri                => 'file://' . $file,
 		description        => '',
-		roll_id            => $self->roll_id,
+		roll_id            => $self->roll_id || $self->add_roll,
 		default_version_id => 1,
 		rating             => 0,
 		md5_sum            => '', #$md5,
@@ -204,7 +204,7 @@ sub add_photo_version {
 
 	my $schema   = $self->schema;
 	my $versions   = $schema->resultset('PhotoVersions');
-	my $version_id = $versions->max('id') + 1;
+	my $version_id = $versions->search({photo_id => $photo_id})->get_column('version_id')->max('version_id') + 1;
 	# need to work out how F-Spot does this
 	#my $md5      = md5_base64($file->slurp);
 
@@ -234,7 +234,7 @@ sub add_tag {
 		return $check->first->id;
 	}
 
-	my $tag_id = $tags->max('id') + 1;
+	my $tag_id = $tags->search->get_column('id')->max('id') + 1;
 
 	if ( !defined $category_id ) {
 		my $import = $tags->search({ name => 'Import Tags' });
